@@ -50,9 +50,12 @@ def run_bot():
                 executed_price = float(buy_order['fills'][0]['price'])
                 qty = float(buy_order['executedQty'])
                 
-                take_profit_price = round(executed_price + 15000, 2)
-                stop_price = round(executed_price - 8000, 2)
-                stop_limit_price = round(stop_price - 1000, 2)
+                take_profit_price = round(
+                    executed_price + ((up - executed_price) * 0.8),
+                    2,
+                )
+                stop_price = round(dn * (1 - 0.015), 2)
+                stop_limit_price = round(stop_price * (1 - 0.002), 2)
                 
                 client.create_oco_order(
                     symbol=SYMBOL,
