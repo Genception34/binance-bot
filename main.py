@@ -1,18 +1,36 @@
 import os
 import time
-import pandas as pd
+
+import ccxt
 import numpy as np
-from binance.client import Client
+import pandas as pd
 
-api_key = os.environ.get('BINANCE_TR_API_KEY') or os.environ.get('BINANCE_API_KEY')
-secret_key = os.environ.get('BINANCE_SECRET_KEY')
 
-# python-binance maps tld="tr" to api.binance.tr, which is unavailable here.
-# Binance TR's spot API is served through api.binance.me.
-Client.API_URL = "https://api.binance.me/api"
-client = Client(api_key, secret_key, tld="tr")
-SYMBOL = 'BTCTRY'
+if not hasattr(ccxt, "binancetr"):
+    ccxt.binancetr = ccxt.binance
+
+exchange = ccxt.binancetr({
+    "apiKey": os.environ.get("BINANCE_TR_API_KEY"),
+    "secret": os.environ.get("BINANCE_SECRET_KEY"),
+    "enableRateLimit": True,
+    "options": {
+        "fetchCurrencies": False,
+        "fetchMargins": False,
+        "fetchMarkets": {
+            "types": ["spot"],
+        },
+    },
+})
+
+# ccxt's Binance TR adapter is not available in every release. The supported
+# Binance TR spot API host is api.binance.me.
+exchange.urls["api"]["public"] = "https://api.binance.me/api/v3"
+exchange.urls["api"]["private"] = "https://api.binance.me/api/v3"
+exchange.load_markets()
+
+SYMBOL = "BTC/TRY"
 TRADE_SIZE_TRY = 10000
+
 
 def wilder_rma(series, period):
     valid = series.dropna()
@@ -31,17 +49,21 @@ def wilder_rma(series, period):
 
     return rma
 
+
 def get_market_data():
-    klines = client.get_klines(symbol=SYMBOL, interval=Client.KLINE_INTERVAL_1MINUTE, limit=100)
-    df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
-    df['close'] = df['close'].astype(float)
-    
-    df['MB'] = df['close'].rolling(window=21).mean()
-    df['STD'] = df['close'].rolling(window=21).std()
-    df['UP'] = df['MB'] + (df['STD'] * 2)
-    df['DN'] = df['MB'] - (df['STD'] * 2)
-    
-    delta = df['close'].diff()
+    ohlcv = exchange.fetch_ohlcv(SYMBOL, timeframe="1m", limit=100)
+    df = pd.DataFrame(
+        ohlcv,
+        columns=["time", "open", "high", "low", "close", "volume"],
+    )
+    df["close"] = df["close"].astype(float)
+
+    df["MB"] = df["close"].rolling(window=21).mean()
+    df["STD"] = df["close"].rolling(window=21).std()
+    df["UP"] = df["MB"] + (df["STD"] * 2)
+    df["DN"] = df["MB"] - (df["STD"] * 2)
+
+    delta = df["close"].diff()
     gain = delta.clip(lower=0)
     loss = -delta.clip(upper=0)
     average_gain = wilder_rma(gain, 6)
@@ -52,55 +74,86 @@ def get_market_data():
     rsi = rsi.mask((average_loss == 0) & (average_gain > 0), 100)
     rsi = rsi.mask((average_gain == 0) & (average_loss > 0), 0)
     rsi = rsi.mask((average_gain == 0) & (average_loss == 0), 50)
-    df['RSI'] = rsi
-    
+    df["RSI"] = rsi
+
     return df.iloc[-1]
+
+
+def place_oco_order(quantity, take_profit_price, stop_price, stop_limit_price):
+    market = exchange.market(SYMBOL)
+    return exchange.private_post_order_oco({
+        "symbol": market["id"],
+        "side": "SELL",
+        "quantity": exchange.amount_to_precision(SYMBOL, quantity),
+        "price": exchange.price_to_precision(SYMBOL, take_profit_price),
+        "stopPrice": exchange.price_to_precision(SYMBOL, stop_price),
+        "stopLimitPrice": exchange.price_to_precision(SYMBOL, stop_limit_price),
+        "stopLimitTimeInForce": "GTC",
+    })
+
 
 def run_bot():
     print("🚀 Bot baslatildi. BTCTRY takibi aktif...")
     while True:
         try:
             data = get_market_data()
-            price = data['close']
-            rsi = data['RSI']
-            dn = data['DN']
-            up = data['UP']
+            price = float(data["close"])
+            rsi = float(data["RSI"])
+            dn = float(data["DN"])
+            up = float(data["UP"])
             band_margin = up - dn
-            
-            print(f"Fiyat: {price:,.2f} | RSI: {rsi:.2f} | Band Margin: {band_margin:,.2f}")
-            
+
+            print(
+                f"Fiyat: {price:,.2f} | "
+                f"RSI: {rsi:.2f} | "
+                f"Band Margin: {band_margin:,.2f}"
+            )
+
             if (rsi < 15 and band_margin >= 18000) or (
                 rsi < 30 and price <= dn * 1.001 and band_margin >= 18000
             ):
                 print(f"🔥 ALIM SINYALI! Fiyat: {price}")
-                
-                buy_order = client.order_market_buy(symbol=SYMBOL, quoteOrderQty=TRADE_SIZE_TRY)
-                executed_price = float(buy_order['fills'][0]['price'])
-                qty = float(buy_order['executedQty'])
-                
+
+                buy_amount = TRADE_SIZE_TRY / price
+                buy_order = exchange.create_market_buy_order(
+                    SYMBOL,
+                    exchange.amount_to_precision(SYMBOL, buy_amount),
+                )
+                executed_price = float(
+                    buy_order.get("average")
+                    or buy_order.get("price")
+                    or price
+                )
+                quantity = float(
+                    buy_order.get("filled")
+                    or buy_order.get("amount")
+                    or buy_amount
+                )
+
                 take_profit_price = round(
                     executed_price + ((up - executed_price) * 0.8),
                     2,
                 )
                 stop_price = round(dn * (1 - 0.015), 2)
                 stop_limit_price = round(stop_price * (1 - 0.002), 2)
-                
-                client.create_oco_order(
-                    symbol=SYMBOL,
-                    side='SELL',
-                    quantity=qty,
-                    price=str(take_profit_price),
-                    stopPrice=str(stop_price),
-                    stopLimitPrice=str(stop_limit_price),
-                    stopLimitTimeInForce='GTC'
+
+                place_oco_order(
+                    quantity,
+                    take_profit_price,
+                    stop_price,
+                    stop_limit_price,
                 )
-                print(f"🎯 OCO Emri Aktif! TP: {take_profit_price}, Stop: {stop_price}")
+                print(
+                    f"🎯 OCO Emri Aktif! "
+                    f"TP: {take_profit_price}, Stop: {stop_price}"
+                )
                 time.sleep(300)
-                
+
             time.sleep(3)
-        except Exception as e:
-            print(f"⚠️ Hata: {e}")
+        except Exception as error:
+            print(f"⚠️ Hata: {error}")
             time.sleep(5)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     run_bot()
