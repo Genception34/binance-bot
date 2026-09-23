@@ -4,11 +4,13 @@ import pandas as pd
 import numpy as np
 from binance.client import Client
 
-API_KEY = os.environ.get('BINANCE_TR_API_KEY') or os.environ.get('BINANCE_API_KEY')
-API_SECRET = os.environ.get('BINANCE_SECRET_KEY')
+api_key = os.environ.get('BINANCE_TR_API_KEY') or os.environ.get('BINANCE_API_KEY')
+secret_key = os.environ.get('BINANCE_SECRET_KEY')
 
-# Binance TR's supported API host is api.binance.me in this environment.
-client = Client(API_KEY, API_SECRET, tld='me')
+# python-binance maps tld="tr" to api.binance.tr, which is unavailable here.
+# Binance TR's spot API is served through api.binance.me.
+Client.API_URL = "https://api.binance.me/api"
+client = Client(api_key, secret_key, tld="tr")
 SYMBOL = 'BTCTRY'
 TRADE_SIZE_TRY = 10000
 
