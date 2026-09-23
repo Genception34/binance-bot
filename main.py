@@ -43,7 +43,9 @@ def run_bot():
             
             print(f"Fiyat: {price:,.2f} | RSI: {rsi:.2f} | Band Margin: {band_margin:,.2f}")
             
-            if rsi < 30 and price <= dn and band_margin >= 18000:
+            if (rsi < 15 and band_margin >= 18000) or (
+                rsi < 30 and price <= dn * 1.001 and band_margin >= 18000
+            ):
                 print(f"🔥 ALIM SINYALI! Fiyat: {price}")
                 
                 buy_order = client.order_market_buy(symbol=SYMBOL, quoteOrderQty=TRADE_SIZE_TRY)
