@@ -4,6 +4,8 @@ version = "0.1.0"
 description = "Add your description here"
 requires-python = ">=3.13"
 dependencies = [
+    "binance>=0.3.144",
+    "cryptography>=50.0.1",
     "numpy>=2.5.3",
     "pandas>=3.0.6",
     "python-binance>=1.0.37",
