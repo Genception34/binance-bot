@@ -12,8 +12,25 @@ client = Client(API_KEY, API_SECRET, tld='me')
 SYMBOL = 'BTCTRY'
 TRADE_SIZE_TRY = 10000
 
+def wilder_rma(series, period):
+    valid = series.dropna()
+    rma = pd.Series(np.nan, index=series.index, dtype=float)
+
+    if len(valid) < period:
+        return rma
+
+    previous = valid.iloc[:period].mean()
+    seed_index = valid.index[period - 1]
+    rma.loc[seed_index] = previous
+
+    for index, value in valid.iloc[period:].items():
+        previous = ((period - 1) * previous + value) / period
+        rma.loc[index] = previous
+
+    return rma
+
 def get_market_data():
-    klines = client.get_klines(symbol=SYMBOL, interval=Client.KLINE_INTERVAL_1MINUTE, limit=30)
+    klines = client.get_klines(symbol=SYMBOL, interval=Client.KLINE_INTERVAL_1MINUTE, limit=100)
     df = pd.DataFrame(klines, columns=['time', 'open', 'high', 'low', 'close', 'volume', '_', '_', '_', '_', '_', '_'])
     df['close'] = df['close'].astype(float)
     
@@ -23,10 +40,17 @@ def get_market_data():
     df['DN'] = df['MB'] - (df['STD'] * 2)
     
     delta = df['close'].diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=6).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=6).mean()
-    rs = gain / loss
-    df['RSI'] = 100 - (100 / (1 + rs))
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    average_gain = wilder_rma(gain, 6)
+    average_loss = wilder_rma(loss, 6)
+
+    rs = average_gain / average_loss.replace(0, np.nan)
+    rsi = 100 - (100 / (1 + rs))
+    rsi = rsi.mask((average_loss == 0) & (average_gain > 0), 100)
+    rsi = rsi.mask((average_gain == 0) & (average_loss > 0), 0)
+    rsi = rsi.mask((average_gain == 0) & (average_loss == 0), 50)
+    df['RSI'] = rsi
     
     return df.iloc[-1]
 
