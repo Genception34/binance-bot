@@ -6,15 +6,10 @@ import numpy as np
 import pandas as pd
 
 
-if not hasattr(ccxt, "binancetr"):
-    raise RuntimeError(
-        "Installed ccxt does not provide ccxt.binancetr; "
-        "refusing to fall back to another Binance exchange."
-    )
-
-exchange = ccxt.binancetr({
+exchange = ccxt.binance({
     "apiKey": os.environ.get("BINANCE_TR_API_KEY"),
     "secret": os.environ.get("BINANCE_SECRET_KEY"),
+    "hostname": "trbinance.com",
     "enableRateLimit": True,
     "options": {
         "fetchCurrencies": False,
@@ -24,6 +19,32 @@ exchange = ccxt.binancetr({
         },
     },
 })
+
+BINANCE_TR_BASE_URL = "https://trbinance.com"
+exchange.urls["api"] = {
+    "public": f"{BINANCE_TR_BASE_URL}/api/v3",
+    "private": f"{BINANCE_TR_BASE_URL}/api/v3",
+    "v1": f"{BINANCE_TR_BASE_URL}/api/v1",
+    "sapi": f"{BINANCE_TR_BASE_URL}/sapi/v1",
+    "sapiV2": f"{BINANCE_TR_BASE_URL}/sapi/v2",
+    "sapiV3": f"{BINANCE_TR_BASE_URL}/sapi/v3",
+    "sapiV4": f"{BINANCE_TR_BASE_URL}/sapi/v4",
+    "papi": f"{BINANCE_TR_BASE_URL}/papi/v1",
+    "papiV2": f"{BINANCE_TR_BASE_URL}/papi/v2",
+    "fapiPublic": f"{BINANCE_TR_BASE_URL}/fapi/v1",
+    "fapiPublicV2": f"{BINANCE_TR_BASE_URL}/fapi/v2",
+    "fapiPublicV3": f"{BINANCE_TR_BASE_URL}/fapi/v3",
+    "fapiPrivate": f"{BINANCE_TR_BASE_URL}/fapi/v1",
+    "fapiPrivateV2": f"{BINANCE_TR_BASE_URL}/fapi/v2",
+    "fapiPrivateV3": f"{BINANCE_TR_BASE_URL}/fapi/v3",
+    "fapiData": f"{BINANCE_TR_BASE_URL}/futures/data",
+    "dapiPublic": f"{BINANCE_TR_BASE_URL}/dapi/v1",
+    "dapiPrivate": f"{BINANCE_TR_BASE_URL}/dapi/v1",
+    "dapiPrivateV2": f"{BINANCE_TR_BASE_URL}/dapi/v2",
+    "dapiData": f"{BINANCE_TR_BASE_URL}/futures/data",
+    "eapiPublic": f"{BINANCE_TR_BASE_URL}/eapi/v1",
+    "eapiPrivate": f"{BINANCE_TR_BASE_URL}/eapi/v1",
+}
 exchange.load_markets()
 
 SYMBOL = "BTC/TRY"
