@@ -22,6 +22,7 @@ exchange = ccxt.binancetr({
     },
 })
 
+# Requested Binance TR API host.
 BINANCE_TR_API_BASE = "https://api.trbinance.com"
 exchange.urls["api"] = {
     "public": f"{BINANCE_TR_API_BASE}/api/v3",
