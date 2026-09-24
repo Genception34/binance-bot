@@ -22,10 +22,31 @@ exchange = ccxt.binancetr({
     },
 })
 
-# ccxt's Binance TR adapter is not available in every release. The supported
-# Binance TR spot API host is api.binance.me.
-exchange.urls["api"]["public"] = "https://api.binance.me/api/v3"
-exchange.urls["api"]["private"] = "https://api.binance.me/api/v3"
+BINANCE_TR_API_BASE = "https://api.trbinance.com"
+exchange.urls["api"] = {
+    "public": f"{BINANCE_TR_API_BASE}/api/v3",
+    "private": f"{BINANCE_TR_API_BASE}/api/v3",
+    "v1": f"{BINANCE_TR_API_BASE}/api/v1",
+    "sapi": f"{BINANCE_TR_API_BASE}/sapi/v1",
+    "sapiV2": f"{BINANCE_TR_API_BASE}/sapi/v2",
+    "sapiV3": f"{BINANCE_TR_API_BASE}/sapi/v3",
+    "sapiV4": f"{BINANCE_TR_API_BASE}/sapi/v4",
+    "papi": f"{BINANCE_TR_API_BASE}/papi/v1",
+    "papiV2": f"{BINANCE_TR_API_BASE}/papi/v2",
+    "fapiPublic": f"{BINANCE_TR_API_BASE}/fapi/v1",
+    "fapiPublicV2": f"{BINANCE_TR_API_BASE}/fapi/v2",
+    "fapiPublicV3": f"{BINANCE_TR_API_BASE}/fapi/v3",
+    "fapiPrivate": f"{BINANCE_TR_API_BASE}/fapi/v1",
+    "fapiPrivateV2": f"{BINANCE_TR_API_BASE}/fapi/v2",
+    "fapiPrivateV3": f"{BINANCE_TR_API_BASE}/fapi/v3",
+    "fapiData": f"{BINANCE_TR_API_BASE}/futures/data",
+    "dapiPublic": f"{BINANCE_TR_API_BASE}/dapi/v1",
+    "dapiPrivate": f"{BINANCE_TR_API_BASE}/dapi/v1",
+    "dapiPrivateV2": f"{BINANCE_TR_API_BASE}/dapi/v2",
+    "dapiData": f"{BINANCE_TR_API_BASE}/futures/data",
+    "eapiPublic": f"{BINANCE_TR_API_BASE}/eapi/v1",
+    "eapiPrivate": f"{BINANCE_TR_API_BASE}/eapi/v1",
+}
 exchange.load_markets()
 
 SYMBOL = "BTC/TRY"

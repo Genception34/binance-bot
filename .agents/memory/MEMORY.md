@@ -1,0 +1,1 @@
+- [Binance TR endpoint compatibility](binancetr-endpoint.md) — verify the configured host resolves before restarting the live ccxt bot.
